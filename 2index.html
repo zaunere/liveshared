@@ -1,0 +1,48 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Live Shared Sessions</title>
+  <style>
+    body { font-family: sans-serif; max-width: 600px; margin: 2rem auto; }
+    .session { border-bottom: 1px solid #ccc; padding: 1rem 0; }
+    .session:last-child { border-bottom: none; }
+    h1 { text-align: center; }
+    a.post { display: inline-block; margin: 1rem 0; }
+  </style>
+</head>
+<body>
+  <h1>Live Shared Sessions</h1>
+  <a class="post"
+     href="https://github.com/zaunere/liveshared/issues/new?labels=live-shared,live-share&template=live_shared.md">
+    ➕ Post a new session
+  </a>
+  <div id="sessions">Loading sessions…</div>
+
+  <script>
+    const owner = 'zaunere', repo = 'liveshared';
+    fetch(`https://api.github.com/repos/${owner}/${repo}/issues?labels=live-shared,live-share&state=open`)
+      .then(r => r.json())
+      .then(issues => {
+        const container = document.getElementById('sessions');
+        container.innerHTML = issues.length
+          ? issues.map(issue => {
+              // simple parser: first line (link), rest (description)
+              const lines = issue.body.split(/\r?\n/);
+              const link = lines[0].replace(/^https?:\/\/\S+/, match => match).trim();
+              const desc = lines.slice(1).join('\n').trim();
+              return `
+                <div class="session">
+                  <h2>${issue.title || issue.user.login}</h2>
+                  <p><a href="${link}" target="_blank">Join session →</a></p>
+                  <p>${desc.replace(/\n/g,'<br>')}</p>
+                  <small>Posted by @${issue.user.login}</small>
+                </div>`;
+            }).join('')
+          : '<p>No upcoming sessions.</p>';
+      })
+      .catch(_=> document.getElementById('sessions').innerHTML = '<p>Unable to load sessions.</p>');
+  </script>
+</body>
+</html>

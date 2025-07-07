@@ -1,48 +1,90 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Live Shared Sessions</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Live Share Sessions</title>
   <style>
-    body { font-family: sans-serif; max-width: 600px; margin: 2rem auto; }
-    .session { border-bottom: 1px solid #ccc; padding: 1rem 0; }
-    .session:last-child { border-bottom: none; }
-    h1 { text-align: center; }
-    a.post { display: inline-block; margin: 1rem 0; }
+    body { font-family: Arial, sans-serif; max-width: 600px; margin: 2rem auto; padding: 0 1rem; background: #f9f9f9; }
+    h1 { text-align: center; margin-bottom: 1.5rem; color: #333; }
+    form { display: flex; flex-direction: column; gap: 1rem; margin-bottom: 2rem; background: #fff; padding: 1.5rem; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+    form input { padding: 0.75rem; font-size: 1rem; border: 1px solid #ccc; border-radius: 4px; }
+    form input:invalid { border-color: #e55353; }
+    form input:focus { border-color: #0366d6; outline: none; }
+    form button { align-self: flex-start; padding: 0.75rem 1.5rem; font-size: 1rem; background: #0366d6; color: #fff; border: none; border-radius: 4px; cursor: pointer; transition: background 0.2s ease; }
+    form button:hover { background: #024fa2; }
+    .session { background: #fff; border-radius: 8px; padding: 1rem; margin-bottom: 1rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+    .session h2 { margin: 0 0 0.5rem; font-size: 1.2rem; color: #0366d6; }
+    .session a { color: #28a745; text-decoration: none; }
+    .session a:hover { text-decoration: underline; }
+    .session p { margin: 0.5rem 0; color: #555; }
+    .session small { color: #777; }
+    .error { color: #e55353; font-size: 0.9rem; }
   </style>
 </head>
 <body>
-  <h1>Live Shared Sessions</h1>
-  <a class="post"
-     href="https://github.com/zaunere/liveshared/issues/new?labels=live-shared,live-share&template=live_shared.md">
-    ➕ Post a new session
-  </a>
+  <h1>Live Share Sessions</h1>
+
+  <form id="postSession" novalidate>
+    <input type="url" id="sessionUrl" placeholder="Paste Live Share URL" required
+           pattern="^(https?:\/\/)?(prod\.liveshare\.vsengsaas\.visualstudio\.com\/join\?|vsls:\/\/)[^\s]+$">
+    <input type="text" id="sessionDesc" placeholder="Brief description" required maxlength="100">
+    <span id="errorMsg" class="error" hidden>Enter a valid Live Share URL.</span>
+    <button type="submit">Post Session</button>
+  </form>
+
   <div id="sessions">Loading sessions…</div>
 
   <script>
-    const owner = 'zaunere', repo = 'liveshared';
-    fetch(`https://api.github.com/repos/${owner}/${repo}/issues?labels=live-shared,live-share&state=open`)
-      .then(r => r.json())
+    const owner = 'OWNER';
+    const repo = 'REPO';
+    const form = document.getElementById('postSession');
+    const urlInput = document.getElementById('sessionUrl');
+    const descInput = document.getElementById('sessionDesc');
+    const errorMsg = document.getElementById('errorMsg');
+
+    form.addEventListener('submit', e => {
+      e.preventDefault();
+      // Validate URL pattern
+      if (!urlInput.checkValidity()) {
+        errorMsg.hidden = false;
+        urlInput.focus();
+        return;
+      }
+      errorMsg.hidden = true;
+      const url = encodeURIComponent(urlInput.value.trim());
+      const desc = encodeURIComponent(descInput.value.trim());
+      const title = encodeURIComponent(`Live Share: ${decodeURIComponent(url)}`);
+      const body = encodeURIComponent(`**URL**  \n${decodeURIComponent(url)}\n\n**Desc**  \n${decodeURIComponent(desc)}`);
+      const issueUrl = `https://github.com/${owner}/${repo}/issues/new?labels=live-share&title=${title}&body=${body}`;
+      window.open(issueUrl, '_blank');
+    });
+
+    // Load sessions
+    fetch(`https://api.github.com/repos/${owner}/${repo}/issues?labels=live-share&state=open`)
+      .then(res => res.json())
       .then(issues => {
         const container = document.getElementById('sessions');
-        container.innerHTML = issues.length
-          ? issues.map(issue => {
-              // simple parser: first line (link), rest (description)
-              const lines = issue.body.split(/\r?\n/);
-              const link = lines[0].replace(/^https?:\/\/\S+/, match => match).trim();
-              const desc = lines.slice(1).join('\n').trim();
-              return `
-                <div class="session">
-                  <h2>${issue.title || issue.user.login}</h2>
-                  <p><a href="${link}" target="_blank">Join session →</a></p>
-                  <p>${desc.replace(/\n/g,'<br>')}</p>
-                  <small>Posted by @${issue.user.login}</small>
-                </div>`;
-            }).join('')
-          : '<p>No upcoming sessions.</p>';
+        if (!Array.isArray(issues) || issues.length === 0) {
+          container.innerHTML = '<p>No sessions currently.</p>';
+          return;
+        }
+        container.innerHTML = issues.map(issue => {
+          const match = issue.body.match(/https?:\/\/[^\s]+|vsls:\/\/[^\s]+/);
+          const link = match ? match[0] : '#';
+          const desc = issue.body.split(/\r?\n/).slice(1).join(' ').trim();
+          return `
+            <div class="session">
+              <h2>${issue.title}</h2>
+              <p><a href="${link}" target="_blank">Join →</a></p>
+              <p>${desc}</p>
+              <small>by @${issue.user.login}</small>
+            </div>`;
+        }).join('');
       })
-      .catch(_=> document.getElementById('sessions').innerHTML = '<p>Unable to load sessions.</p>');
+      .catch(() => {
+        document.getElementById('sessions').innerHTML = '<p>Cannot load sessions.</p>';
+      });
   </script>
 </body>
 </html>
